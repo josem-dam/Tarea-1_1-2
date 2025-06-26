@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Tarea 1.1 y 1.2 (ayuda)",
+            "type": "java",
+            "request": "launch",
+            "mainClass": "edu.acceso.tarea1_1_2.Main",
+            "args": ["--help"]
+        },
+        {
+            "name": "Tarea 1.1 y 1.2 (no recursiva)",
+            "type": "java",
+            "request": "launch",
+            "mainClass": "edu.acceso.tarea1_1_2.Main",
+            "args": []
+        },
+        {
+            "name": "Tarea 1.1 y 1.2 (recursiva)",
+            "type": "java",
+            "request": "launch",
+            "mainClass": "edu.acceso.tarea1_1_2.Main",
+            "args": ["--recursive", "--depth", "2", "--limit", "50"]
+        }
+    ]
+}
