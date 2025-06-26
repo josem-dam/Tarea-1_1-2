@@ -14,14 +14,21 @@ import org.slf4j.LoggerFactory;
 public class FileInfo {
     private static final Logger logger = LoggerFactory.getLogger(FileInfo.class);
 
+    /**
+     * Ruta del archivo o directorio.
+     * Esta ruta es relativa al directorio de trabajo actual.
+     */
     private Path path;
-    private boolean isDirectory;
+    /** Tipo de archivo (directorio, archivo regular, etc.)  */
+    private TipoArchivo tipo;
+    /** Propietario del archivo o directorio.  */
     private String propietario = "";
-    private long tamanho = 0; // Tamaño en bytes
+    /** Tamaño del archivo o directorio. */
+    private long tamanho = 0;
 
     public FileInfo(Path path) {
         this.path = path;
-        this.isDirectory = Files.isDirectory(path);
+        this.tipo = TipoArchivo.fromPath(path);
         try {
             this.propietario = Files.getOwner(path).getName();
             this.tamanho = Files.size(path);
@@ -30,22 +37,44 @@ public class FileInfo {
         }
     }
 
+    /**
+     * Obtiene la ruta del archivo o directorio.
+     * Esta ruta es relativa al directorio de trabajo actual.
+     * @return La ruta del archivo o directorio.
+     */
     public Path getPath() {
         return path;
     }
 
-    public boolean isDirectory() {
-        return isDirectory;
+    /**
+     * Obtiene el tipo de archivo.
+     * @return El tipo de archivo (directorio, archivo regular, etc.).
+     */
+    public TipoArchivo getTipo() {
+        return tipo;
     }
 
+    /**
+     * Obtiene el propietario del archivo o directorio.
+     * @return El propietario del archivo o directorio.
+     */
     public String getPropietario() {
         return propietario;
     }
 
+    /**
+     * Obtiene el tamaño del archivo o directorio.
+     * @return El tamaño del archivo o directorio.
+     */
     public long getTamanho() {
         return tamanho;
     } 
 
+    /**
+     * Obtiene una representación legible del tamaño del archivo o directorio.
+     * Por ejemplo, "1.23 MB", "456 KB", etc.
+     * @return Una cadena que representa el tamaño en un formato legible.
+     */
     public String getTamanhoLegible() {
         if (tamanho < 1024) {
             return tamanho + " B";

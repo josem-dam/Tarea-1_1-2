@@ -20,7 +20,7 @@
             "type": "java",
             "request": "launch",
             "mainClass": "edu.acceso.tarea1_1_2.Main",
-            "args": ["--recursive", "--depth", "2", "--limit", "50"]
+            "args": ["--recursive", "--depth", "2", "--limit", "50", "--type", "directorio"]
         }
     ]
 }

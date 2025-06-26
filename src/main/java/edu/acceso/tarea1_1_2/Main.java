@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -19,10 +20,6 @@ public class Main {
      * y continuar con el siguiente elemento.
      * @param stream Stream de Paths a recorrer
      * @return Stream de Paths accesibles
-     * @throws IOException  Si ocurre un error al acceder a los archivos
-     * @implNote Este método es útil para evitar que el programa se detenga
-     * al encontrar un archivo inaccesible, permitiendo que el procesamiento
-     * continúe con los demás archivos. 
      */
     public static Stream<Path> safeStream(Stream<Path> stream) {
         Iterator<Path> iterator = stream.iterator();
@@ -56,25 +53,49 @@ public class Main {
             .onClose(stream::close);
     }
 
+    /**
+     * Obtiene un Stream de FileInfo representando los archivos en el directorio
+     * especificado en la configuración.
+     * 
+     * @return Stream de FileInfo con información de los archivos.
+     * @throws IOException Si ocurre un error al acceder a los archivos.
+     */
+    public static Stream<FileInfo> obtenerArchivos() throws IOException {
+       Config config = Config.getInstance();
+        // Protegemos Files.walk con safeStream para evitar excepciones.
+       return safeStream(Files.walk(config.getDirectory(), config.getDepth(), FileVisitOption.FOLLOW_LINKS))
+           .limit(config.getLimit())
+           .filter(path -> {
+                // Filtramos por tipo de archivo si se especificó alguno
+                if (config.getTipos() != null && config.getTipos().length > 0) {
+                    TipoArchivo tipo = TipoArchivo.fromPath(path);
+                    return Arrays.stream(config.getTipos()).anyMatch(tipo::equals);
+                }
+                return true; // No se especificaron tipos, incluir todos
+            })
+           .map(FileInfo::new);
+    }
+
+    /**
+     * Genera una línea de información para un archivo.
+     * @param archivo El objeto FileInfo que contiene la información del archivo.
+     * @return Una cadena formateada con la información del archivo.
+     */
+    public static String generarLinea(FileInfo archivo) {
+        return String.format("%s\t%s\t%s\t%s", 
+            archivo.getPath(), 
+            archivo.getTipo(), 
+            archivo.getPropietario(), 
+            archivo.getTamanhoLegible());
+    }
+
     public static void main(String[] args) {
-        Config config = Config.initialize(args);
-        System.out.println(config.getLimit());
-        try {
-            // Protegemos Files.walk con safeStream para evitar excepciones.
-            Stream<FileInfo> archivos = safeStream(Files.walk(config.getDirectory(), config.getDepth(), FileVisitOption.FOLLOW_LINKS))
-                .limit(config.getLimit())
-                .map(FileInfo::new);
+        @SuppressWarnings("unused")
+        Config config = Config.create(args);
 
-            archivos.forEach(archivo ->{
-                // Imprimir información de cada archivo
-                System.out.printf("%s\t%s\t%s\t%s%n", 
-                    archivo.getPath(), 
-                    archivo.isDirectory() ? "DIRECTORIO" : "ARCHIVO", 
-                    archivo.getPropietario(), 
-                    archivo.getTamanhoLegible());
-            });
-
-            archivos.close();
+        try(Stream<FileInfo> archivos = obtenerArchivos()) {
+            archivos.map(Main::generarLinea)
+                .forEach(System.out::println);
         }
         catch (Exception e) {
             logger.error("Error al listar archivos", e);
