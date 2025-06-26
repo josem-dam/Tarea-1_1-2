@@ -52,8 +52,8 @@ public class Config {
 
             if (cmd.hasOption("l")) {
                 String limitStr = cmd.getOptionValue("l");
-                int val = Integer.parseInt(limitStr);
-                if (val < 0) throw new IllegalArgumentException("El límite debe ser un número natural.");
+                this.limit = Integer.parseInt(limitStr);
+                if (this.limit < 0) throw new IllegalArgumentException("El límite debe ser un número natural.");
             }
             if(this.limit == 0) this.limit = Long.MAX_VALUE;
 
