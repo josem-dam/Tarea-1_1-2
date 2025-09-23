@@ -3,6 +3,9 @@ package edu.acceso.tarea1_1_2;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,16 +27,38 @@ public class FileInfo {
     /** Propietario del archivo o directorio.  */
     private String propietario = "";
     /** Tamaño del archivo o directorio. */
-    private long tamanho = 0;
+    private long tamanno = 0;
+
+    /**
+     * Fecha y hora de la última modificación del archivo o directorio.
+     */
+    private LocalDateTime modificacion;
 
     public FileInfo(Path path) {
         this.path = path;
         this.tipo = TipoArchivo.fromPath(path);
         try {
             this.propietario = Files.getOwner(path).getName();
-            this.tamanho = Files.size(path);
         } catch (IOException e) {
-            logger.error("Error al obtener información del archivo: {}", path, e);
+            logger.error("Error al obtener el propietario del archivo: {}", path, e);
+            this.propietario = "???";
+        }
+        try {
+            this.tamanno = Files.size(path);
+        } catch (IOException e) {
+            logger.error("Error al obtener el tamaño del archivo: {}", path, e);
+            this.tamanno = 0;
+        }
+        this.modificacion = obtenerFechaModificacion(path);
+    }
+
+    private LocalDateTime obtenerFechaModificacion(Path path) {
+        try {
+            FileTime fileTime = Files.getLastModifiedTime(path);
+            return LocalDateTime.ofInstant(fileTime.toInstant(), ZoneId.systemDefault());
+        } catch (IOException e) {
+            logger.error("Error al obtener la fecha de modificación del archivo: {}", path, e);
+            return null;
         }
     }
 
@@ -66,8 +91,8 @@ public class FileInfo {
      * Obtiene el tamaño del archivo o directorio.
      * @return El tamaño del archivo o directorio.
      */
-    public long getTamanho() {
-        return tamanho;
+    public long getTamanno() {
+        return tamanno;
     } 
 
     /**
@@ -75,15 +100,28 @@ public class FileInfo {
      * Por ejemplo, "1.23 MB", "456 KB", etc.
      * @return Una cadena que representa el tamaño en un formato legible.
      */
-    public String getTamanhoLegible() {
-        if (tamanho < 1024) {
-            return tamanho + " B";
-        } else if (tamanho < 1024 * 1024) {
-            return String.format("%.2f KB", tamanho / 1024.0);
-        } else if (tamanho < 1024 * 1024 * 1024) {
-            return String.format("%.2f MB", tamanho / (1024.0 * 1024));
-        } else {
-            return String.format("%.2f GB", tamanho / (1024.0 * 1024 * 1024));
+    public String getTamannoLegible() {
+        String[] unidades = {"B", "KB", "MB", "GB"};
+        double tamanno = this.tamanno;
+        for(String unidad: unidades) {
+            if(tamanno < 1024) {
+                return String.format("%.2f %s", tamanno, unidad);
+            }
+            tamanno /= 1024;
         }
+        return String.format("%.2f %s", tamanno, "TB");
+    }
+
+    public LocalDateTime getModificacion() {
+        return modificacion;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s\t%s\t%s\t%s", 
+            getPath(), 
+            getTipo(), 
+            getPropietario(), 
+            getTamannoLegible());
     }
 }

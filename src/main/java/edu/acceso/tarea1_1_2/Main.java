@@ -18,12 +18,14 @@ public class Main {
     /**
      * Captura la excepciones que genera el Stream para imprimer el error
      * y continuar con el siguiente elemento.
-     * @param stream Stream de Paths a recorrer
-     * @return Stream de Paths accesibles
+     * @param <T> Tipo de elemento en el Stream
+     * @param stream Flujo de elementos a procesar
+     * @return El mismo flujo pero protegido contra excepciones (los elementos que
+     *         generen excepciones serán omitidos y se registrará el error)
      */
-    public static Stream<Path> safeStream(Stream<Path> stream) {
-        Iterator<Path> iterator = stream.iterator();
-        Iterable<Path> iterable = () -> new Iterator<>() {
+    public static <T> Stream<T> safeStream(Stream<T> stream) {
+        Iterator<T> iterator = stream.iterator();
+        Iterable<T> iterable = () -> new Iterator<>() {
             @Override
             public boolean hasNext() {
                 while(true) {
@@ -37,7 +39,7 @@ public class Main {
             }
 
             @Override
-            public Path next() {
+            public T next() {
                 while(true) {
                     try {
                         return iterator.next();
@@ -54,15 +56,16 @@ public class Main {
     }
 
     /**
-     * Obtiene un Stream de FileInfo representando los archivos en el directorio
-     * especificado en la configuración.
+     * Obtiene propiamente la lista de archivos del directorio requerido
+     * según las indicaciones y filtros definidos por el usuario.
      * 
-     * @return Stream de FileInfo con información de los archivos.
-     * @throws IOException Si ocurre un error al acceder a los archivos.
+     * @return El flujo de archivos encontrados que cumplen con los filtros.
+     * @throws IOException Si ocurre un error al interactuar con el sistema de archivos.
      */
-    public static Stream<FileInfo> obtenerArchivos() throws IOException {
+    public static Stream<Path> obtenerArchivos() throws IOException {
        Config config = Config.getInstance();
         // Protegemos Files.walk con safeStream para evitar excepciones.
+        // cuando se intenta acceder a archivos o directorios sin permisos.
        return safeStream(Files.walk(config.getDirectory(), config.getDepth(), FileVisitOption.FOLLOW_LINKS))
            .limit(config.getLimit())
            .filter(path -> {
@@ -72,32 +75,19 @@ public class Main {
                     return Arrays.stream(config.getTipos()).anyMatch(tipo::equals);
                 }
                 return true; // No se especificaron tipos, incluir todos
-            })
-           .map(FileInfo::new);
-    }
-
-    /**
-     * Genera una línea de información para un archivo.
-     * @param archivo El objeto FileInfo que contiene la información del archivo.
-     * @return Una cadena formateada con la información del archivo.
-     */
-    public static String generarLinea(FileInfo archivo) {
-        return String.format("%s\t%s\t%s\t%s", 
-            archivo.getPath(), 
-            archivo.getTipo(), 
-            archivo.getPropietario(), 
-            archivo.getTamanhoLegible());
+            });
     }
 
     public static void main(String[] args) {
         @SuppressWarnings("unused")
         Config config = Config.create(args);
 
-        try(Stream<FileInfo> archivos = obtenerArchivos()) {
-            archivos.map(Main::generarLinea)
+        try(Stream<Path> archivos = obtenerArchivos()) {
+            archivos
+                .map(FileInfo::new)
                 .forEach(System.out::println);
         }
-        catch (Exception e) {
+        catch (IOException e) {
             logger.error("Error al listar archivos", e);
             System.exit(1);
         }
