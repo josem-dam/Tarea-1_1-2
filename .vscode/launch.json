@@ -13,14 +13,14 @@
             "type": "java",
             "request": "launch",
             "mainClass": "edu.acceso.tarea1_1_2.Main",
-            "args": []
+            "args": ["--limit", "5"]
         },
         {
             "name": "Tarea 1.1 y 1.2 (recursiva)",
             "type": "java",
             "request": "launch",
             "mainClass": "edu.acceso.tarea1_1_2.Main",
-            "args": ["--recursive", "--depth", "2", "--limit", "50", "--type", "directorio"]
+            "args": ["--recursive", "--depth", "2", "--limit", "10", "--type", "directorio"]
         }
     ]
 }

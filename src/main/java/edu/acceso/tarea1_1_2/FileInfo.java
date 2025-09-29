@@ -1,11 +1,15 @@
 package edu.acceso.tarea1_1_2;
 
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Iterator;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,6 +119,63 @@ public class FileInfo {
     public LocalDateTime getModificacion() {
         return modificacion;
     }
+
+    /**
+     * Captura la excepciones que genera el Stream para imprimer el error
+     * y continuar con el siguiente elemento.
+     * @param <T> Tipo de elemento en el Stream
+     * @param stream Flujo de elementos a procesar
+     * @return El mismo flujo pero protegido contra excepciones (los elementos que
+     *         generen excepciones serán omitidos y se registrará el error)
+     */
+    private static <T> Stream<T> safeStream(Stream<T> stream) {
+        Iterator<T> iterator = stream.iterator();
+        Iterable<T> iterable = () -> new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                while(true) {
+                    try {
+                        return iterator.hasNext();
+                    }
+                    catch(Exception e) {
+                        logger.error("Inaccesible: {}", e.getMessage());
+                    }
+                }
+            }
+
+            @Override
+            public T next() {
+                while(true) {
+                    try {
+                        return iterator.next();
+                    }
+                    catch(Exception e) {
+                        logger.error("Inaccesible: {}", e.getMessage());
+                    }
+                }
+            }
+        };
+
+        return StreamSupport.stream(iterable.spliterator(), false)
+            .onClose(stream::close);
+    }
+
+    /**
+     * Obtiene propiamente la lista de archivos del directorio requerido
+     * según las indicaciones y filtros definidos por el usuario.
+     * 
+     * @param directory Directorio donde se realizará la obtención de archivos.
+     * @param depth Profundidad máxima de búsqueda.
+     * @return El flujo de archivos encontrados que cumplen con los filtros.
+     * @throws IOException Si ocurre un error al interactuar con el sistema de archivos.
+     */
+    public static Stream<FileInfo> list(Path directory, int depth) throws IOException {
+        // Protegemos Files.walk con safeStream para evitar excepciones.
+        // cuando se intenta acceder a archivos o directorios sin permisos.
+       return safeStream(Files.walk(directory, depth, FileVisitOption.FOLLOW_LINKS))
+           .map(FileInfo::new);
+    }
+
 
     @Override
     public String toString() {
