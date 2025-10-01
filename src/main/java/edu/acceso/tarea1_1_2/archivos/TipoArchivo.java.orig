@@ -2,6 +2,8 @@ package edu.acceso.tarea1_1_2.archivos;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.function.Predicate;
 
 /**
  * Tipo de archivo que puede ser un directorio, un archivo regular,
@@ -10,13 +12,26 @@ import java.nio.file.Path;
  */
 public enum TipoArchivo {
     /** Representa un directorio */
-    DIRECTORIO,
+    DIRECTORIO(Files::isDirectory),
     /** Representa un archivo regular */
-    ARCHIVO,
+    ARCHIVO(Files::isRegularFile),
     /** Representa un enlace simbólico */
-    SIMBOLICO,
+    SIMBOLICO(Files::isSymbolicLink),
     /** Representa cualquier otro tipo de archivo */
-    OTRO;
+    OTRO(path -> true);
+
+    /**
+     * Predicate que determina si una ruta corresponde a este tipo de archivo.
+     */
+    private final Predicate<Path> esTipo;
+
+    /**
+     * Constructor del enum.
+     * @param esTipo Predicado que determina si una ruta corresponde a este tipo de archivo.
+     */
+    TipoArchivo(Predicate<Path> esTipo) {
+        this.esTipo = esTipo;
+    }
 
     /**
      * Obtiene el tipo del archivo proporcionado.
@@ -24,10 +39,13 @@ public enum TipoArchivo {
      * @return El tipo de archivo.
      */
     public static TipoArchivo fromPath(Path path) {
-        if(Files.isDirectory(path)) return TipoArchivo.DIRECTORIO;
-        if(Files.isRegularFile(path)) return TipoArchivo.ARCHIVO;
-        if(Files.isSymbolicLink(path)) return TipoArchivo.SIMBOLICO;
-        else return TipoArchivo.OTRO;
+        return Arrays.stream(values())
+                .filter(tipo -> tipo.esTipo.test(path))
+                .findFirst()
+                .orElseGet(() -> {
+                    assert false: "Nunca debería llegar aquí. ¿El predicado de OTRO devuelve siempre verdadero?";
+                    return OTRO;
+                });
     }
 
     /**
