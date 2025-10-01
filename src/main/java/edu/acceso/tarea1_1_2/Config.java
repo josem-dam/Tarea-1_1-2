@@ -14,10 +14,14 @@ import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Level;
+import edu.acceso.tarea1_1_2.archivos.TipoArchivo;
+
 /**
  * Clase de configuración que maneja las opciones de línea de comandos
- * y proporciona acceso a la configuración del programa.
- * Implementa el patrón Singleton para asegurar que solo haya una instancia de configuración.
+ * y proporciona acceso a la configuración del programa. Utiliza la
+ * librería Apache Commons CLI e implementa el patrón Singleton para
+ * asegurar que solo haya una instancia de configuración.
  */
 public class Config {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
@@ -41,6 +45,10 @@ public class Config {
     /** Tipos de archivo a incluir (por defecto incluye todos) */
     private TipoArchivo[] tipos = null;
 
+    /**
+     * Constructor oculto para evitar la instanciación.
+     * @param args Los argumentos de la línea de comandos.
+     */
     private Config(String[] args) {
         Options options = new Options();
         options.addOption("r", "recursive", false, "Recursivo");
@@ -185,5 +193,14 @@ public class Config {
      */
     public TipoArchivo[] getTipos() {
         return tipos;
+    }
+
+    /**
+     * Obtiene el nivel de registro.
+     * @return El nivel de registro.
+     */
+    public Level getLogLevel() {
+        // No puedo implementar -vvvv con Apache Commons CLI
+        return Level.WARN;
     }
 }

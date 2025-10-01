@@ -7,6 +7,9 @@ import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.acceso.tarea1_1_2.archivos.FileInfo;
+import edu.acceso.tarea1_1_2.archivos.TipoArchivo;
+
 /**
  * Clase principal que inicia la aplicación.
  * Utiliza la configuración proporcionada por la clase Config
@@ -14,6 +17,27 @@ import org.slf4j.LoggerFactory;
  */
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
+
+    /**
+     * Punto de entrada de la aplicación.
+     * Inicializa la configuración y lista los archivos según las opciones proporcionadas.
+     * @param args Argumentos de línea de comandos.
+     */
+    public static void main(String[] args) {
+        Config config = Config.create(args);
+
+        ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+        rootLogger.setLevel(config.getLogLevel());
+
+
+        try(Stream<FileInfo> archivos = obtenerArchivos()) {
+            archivos.forEach(a -> System.out.println(generarLinea(a)));
+        }
+        catch (IOException e) {
+            logger.error("Error al listar archivos", e);
+            System.exit(1);
+        }
+    }
 
     /**
      * Obtiene el flujo de archivos según la configuración actual.
@@ -36,20 +60,28 @@ public class Main {
     }
 
     /**
-     * Punto de entrada de la aplicación.
-     * Inicializa la configuración y lista los archivos según las opciones proporcionadas.
-     * @param args Argumentos de línea de comandos.
+     * Obtiene la representación legible de una cantidad de información
+     * expresada en bytes. Por ejemplo, "1.23 MB", "456 KB", etc.
+     * @param cantidad La cantidad de información expresada en bytes.
+     * @return Una cadena que representa el tamaño en un formato legible.
      */
-    public static void main(String[] args) {
-        @SuppressWarnings("unused")
-        Config config = Config.create(args);
+    private static String generarCantidadLegible(long cantidad) {
+        String[] unidades = {"B", "KB", "MB", "GB"};
+        double tamanno = cantidad;
+        for(String unidad: unidades) {
+            if(tamanno < 1024) {
+                return String.format("%.2f %s", tamanno, unidad);
+            }
+            tamanno /= 1024;
+        }
+        return String.format("%.2f %s", tamanno, "TB");
+    }
 
-        try(Stream<FileInfo> archivos = obtenerArchivos()) {
-            archivos.forEach(System.out::println);
-        }
-        catch (IOException e) {
-            logger.error("Error al listar archivos", e);
-            System.exit(1);
-        }
+    private static String generarLinea(FileInfo fileInfo) {
+        return String.format("%-12s  %12s  %-25s  %s", 
+            fileInfo.getTipo(), 
+            generarCantidadLegible(fileInfo.getTamanno()),
+            fileInfo.getPropietario(), 
+            fileInfo.getPath());
     }
 }

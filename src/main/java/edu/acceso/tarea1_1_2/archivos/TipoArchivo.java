@@ -1,4 +1,4 @@
-package edu.acceso.tarea1_1_2;
+package edu.acceso.tarea1_1_2.archivos;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -7,7 +7,8 @@ import java.util.function.Predicate;
 
 /**
  * Tipo de archivo que puede ser un directorio, un archivo regular,
- * un enlace simbólico o cualquier otro tipo de archivo.
+ * un enlace simbólico o cualquier otro tipo de archivo. Sirve de enum
+ * auxiliar de {@link FileInfo}.
  */
 public enum TipoArchivo {
     /** Representa un directorio */
@@ -24,25 +25,33 @@ public enum TipoArchivo {
      */
     private final Predicate<Path> esTipo;
 
+    /**
+     * Constructor del enum.
+     * @param esTipo Predicado que determina si una ruta corresponde a este tipo de archivo.
+     */
     TipoArchivo(Predicate<Path> esTipo) {
         this.esTipo = esTipo;
     }
 
     /**
-     * Crea un tipo de archivo a partir de una ruta.
+     * Obtiene el tipo del archivo proporcionado.
      * @param path La ruta del archivo.
-     * @return El tipo de archivo correspondiente.  
+     * @return El tipo de archivo.
      */
     public static TipoArchivo fromPath(Path path) {
         return Arrays.stream(values())
                 .filter(tipo -> tipo.esTipo.test(path))
                 .findFirst()
-                .orElse(OTRO);
+                .orElseGet(() -> {
+                    assert false: "Nunca debería llegar aquí. ¿El predicado de OTRO devuelve siempre verdadero?";
+                    return OTRO;
+                });
     }
 
     /**
-     * Crea un tipo de archivo a partir de una cadena.
-     * Si la cadena no corresponde a un tipo válido, retorna null.  
+     * Obtiene el tipo de archivo a partir de una cadena. Por ejemplo,
+     * de "directorio" obtendrá {@link TipoArchivo#DIRECTORIO}.
+     * Si la cadena no corresponde a un tipo válido, devuelve null.  
      * @param tipo  La cadena que representa el tipo de archivo.
      * @return  El tipo de archivo correspondiente o null si no es válido.
      */
@@ -52,10 +61,5 @@ public enum TipoArchivo {
         } catch (IllegalArgumentException e) {
             return null;
         }
-    }
-
-    @Override
-    public String toString() {
-        return this.name();
     }
 }

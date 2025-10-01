@@ -1,4 +1,4 @@
-package edu.acceso.tarea1_1_2;
+package edu.acceso.tarea1_1_2.archivos;
 
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -16,7 +16,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Clase que representa la información de un archivo o directorio.
- * Esta clase puede ser extendida para incluir más detalles como tamaño, fecha de modificación, etc
+ * Para la obtención de dicha información se usa la interfaz {@link java.nio.file.Files}.
+ * Esta clase puede ser extendida para incluir más detalles c0bre el archivo.
  */
 public class FileInfo {
     private static final Logger logger = LoggerFactory.getLogger(FileInfo.class);
@@ -38,6 +39,10 @@ public class FileInfo {
      */
     private LocalDateTime modificacion;
 
+    /**
+     * Constructor de la clase.
+     * @param path El archivo del que extraer información.
+     */
     public FileInfo(Path path) {
         this.path = path;
         this.tipo = TipoArchivo.fromPath(path);
@@ -56,6 +61,11 @@ public class FileInfo {
         this.modificacion = obtenerFechaModificacion(path);
     }
 
+    /**
+     * Obtiene la fecha de modificación de un archivo
+     * @param path El propio archivo
+     * @return La fecha de modificación.
+     */
     private LocalDateTime obtenerFechaModificacion(Path path) {
         try {
             FileTime fileTime = Files.getLastModifiedTime(path);
@@ -99,34 +109,17 @@ public class FileInfo {
         return tamanno;
     } 
 
-    /**
-     * Obtiene una representación legible del tamaño del archivo o directorio.
-     * Por ejemplo, "1.23 MB", "456 KB", etc.
-     * @return Una cadena que representa el tamaño en un formato legible.
-     */
-    public String getTamannoLegible() {
-        String[] unidades = {"B", "KB", "MB", "GB"};
-        double tamanno = this.tamanno;
-        for(String unidad: unidades) {
-            if(tamanno < 1024) {
-                return String.format("%.2f %s", tamanno, unidad);
-            }
-            tamanno /= 1024;
-        }
-        return String.format("%.2f %s", tamanno, "TB");
-    }
-
     public LocalDateTime getModificacion() {
         return modificacion;
     }
 
     /**
-     * Captura la excepciones que genera el Stream para imprimer el error
-     * y continuar con el siguiente elemento.
+     * Captura la excepciones que genera un Stream y, cuando ocurre una,
+     * registra el error y continua con el siguiente elemento, para evitar
+     * que se deje de recorrer el Stream.
      * @param <T> Tipo de elemento en el Stream
      * @param stream Flujo de elementos a procesar
-     * @return El mismo flujo pero protegido contra excepciones (los elementos que
-     *         generen excepciones serán omitidos y se registrará el error)
+     * @return El mismo flujo exceptuando los elementos que provocan error.
      */
     private static <T> Stream<T> safeStream(Stream<T> stream) {
         Iterator<T> iterator = stream.iterator();
@@ -162,11 +155,13 @@ public class FileInfo {
 
     /**
      * Obtiene propiamente la lista de archivos del directorio requerido
-     * según las indicaciones y filtros definidos por el usuario.
+     * utilizando el método estático {@link java.nio.file.Files#walk},
+     * pero protegiendo el flujo con {@link safeStream} para no interrumpirlo cuando
+     * se encuentre con un error al obtener la información de algún archivo.
      * 
      * @param directory Directorio donde se realizará la obtención de archivos.
      * @param depth Profundidad máxima de búsqueda.
-     * @return El flujo de archivos encontrados que cumplen con los filtros.
+     * @return El flujo de archivos que se encuentran en el directorio.
      * @throws IOException Si ocurre un error al interactuar con el sistema de archivos.
      */
     public static Stream<FileInfo> list(Path directory, int depth) throws IOException {
@@ -174,15 +169,5 @@ public class FileInfo {
         // cuando se intenta acceder a archivos o directorios sin permisos.
        return safeStream(Files.walk(directory, depth, FileVisitOption.FOLLOW_LINKS))
            .map(FileInfo::new);
-    }
-
-
-    @Override
-    public String toString() {
-        return String.format("%s\t%s\t%s\t%s", 
-            getPath(), 
-            getTipo(), 
-            getPropietario(), 
-            getTamannoLegible());
     }
 }
