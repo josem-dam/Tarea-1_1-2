@@ -1,198 +1,183 @@
 package edu.acceso.tarea1_1_2;
 
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.ParseException;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ch.qos.logback.classic.Level;
 import edu.acceso.tarea1_1_2.archivos.TipoArchivo;
 
+import java.nio.file.Path;
+
 /**
- * Clase de configuración que maneja las opciones de línea de comandos
- * y proporciona acceso a la configuración del programa. Utiliza la
- * librería Apache Commons CLI e implementa el patrón Singleton para
- * asegurar que solo haya una instancia de configuración.
+ * Clase que gestiona la configuración de la aplicación. Usa el patrón Singleton para generar
+ * una única instancia de configuración y que pueda obtenerse desde cualquier parte del programa.
+ * Implementa el análisis de argumentos de línea de comandos con la librería picocli.
  */
+@Command(name = "tarea1_1_2", mixinStandardHelpOptions = true, version = "1.0.0",
+         description = "Herramienta para buscar archivos con diferentes criterios")
 public class Config {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
-    /**
-     * Instancia única de Configuración.
-     * Se inicializa con los argumentos de línea de comandos.
-     */
+
+    /** La instancia única de configuración (patrón Singleton) */
     private static Config instance;
 
-    /**
-     * Indica si se debe realizar una búsqueda recursiva.
-     * Por defecto es false, lo que significa que no es recursivo.
+    private static final String DEFAULT_DIRECTORY = System.getProperty("user.home");
+
+    /** 
+     * Conversor para el TipoArchivo. En realidad, picocli puede manejar enums sin necesidad
+     * de crer un conversor personalizado, pero en {@link TipoArchivo} se implementó un método
+     * {@link TipoArchivo#fromString} para que la cadena no tuviera que ser forzosamente en mayúsculas.
      */
+    private static class TipoArchivoConverter implements CommandLine.ITypeConverter<TipoArchivo> {
+        @Override
+        public TipoArchivo convert(String value) throws Exception {
+            TipoArchivo tipo = TipoArchivo.fromString(value);
+            if (tipo == null) throw new CommandLine.TypeConversionException("Tipo de archivo inválido: " + value);
+            return tipo;
+        }
+    }
+
+    // Estas son las opciones de línea de comandos
+
+    @Option(names = {"-r", "--recursive"}, 
+            description = "Habilita la recursividad en la búsqueda")
     private boolean recursive = false;
-    /** Límite máximo de archivos a procesar (0 para sin límite) */
-    private long limit = 0;
-    /** Profundidad máxima de búsqueda (0 para sin límite) */
-    private int depth = Integer.MAX_VALUE;
-    /** Directorio a buscar (por defecto es el directorio personal) */
-    private Path directory = Path.of(System.getProperty("user.home"));
-    /** Tipos de archivo a incluir (por defecto incluye todos) */
-    private TipoArchivo[] tipos = null;
+
+    @Option(names = {"-l", "--limit"}, paramLabel = "LIMITE",
+            description = "Máxima cantidad de archivos mostrados. 0, sin límite")
+    private long limit = Long.MAX_VALUE;
+
+    @Option(names = {"-d", "--depth"}, paramLabel = "PROFUNDIDAD",
+            description = "Máxima profundidad de recursión, 0, sin límite")
+    private int depth = 1;
+
+    @Option(names = {"-s", "--silent"}, 
+            description = "Modo silencioso, sólo muestra errores. Incompatible con -v")
+    private boolean silent = false;
+
+    @Option(names = {"-v", "--verbose"},
+            description = "Verbosidad de los mensajes de información. Puede repetirse para aumentarla")
+    private boolean[] verbosity;
+
+    @Option(names = {"-t", "--type"}, paramLabel = "TIPO", converter = TipoArchivoConverter.class,
+            description = "Tipo de archivo a mostrar (puede usarse varias veces)")
+    private TipoArchivo[] tipos;
+
+    // Estos los parámetros posicionales.
+
+    @Parameters(paramLabel = "DIRECTORIO", arity = "0..1",
+            description = "Directorio base para la búsqueda")
+    private Path directory;
 
     /**
-     * Constructor oculto para evitar la instanciación.
-     * @param args Los argumentos de la línea de comandos.
+     * Constructor privado para evitar instanciación externa (patrón Singleton).
      */
-    private Config(String[] args) {
-        Options options = new Options();
-        options.addOption("r", "recursive", false, "Recursivo");
-        options.addOption("l", "limit", true, "Límite máximo (0 para sin límite)");
-        options.addOption("d", "depth", true, "Profundidad (0 para sin límite, requiere -r)");
-        options.addOption("h", "help", false, "Muestra esta ayuda");
-        options.addOption("t", "type", true, "Tipo de archivo a incluir (puede usarse varias veces)");
+    private Config() {
+        super();
+    }
 
-        CommandLineParser parser = new DefaultParser();
+    /**
+     * Crea la instancia única de Config a partir de los argumentos de línea de comandos.
+     * @param args Argumentos de línea de comandos.
+     * @return La instancia con la configuración.
+     */
+    public static Config create(String[] args) {
+        if (instance != null) {
+            throw new IllegalStateException("Ya existe una configuración. Use getInstance() para obtenerla");
+        }
+
+        instance = new Config();
+        CommandLine cmd = new CommandLine(instance);
+
         try {
-            CommandLine cmd = parser.parse(options, args);
+            cmd.parseArgs(args);
 
-            if(cmd.hasOption("help")) {
-                new HelpFormatter().printHelp(
-                    "java -jar listado.jar",
-                    "Lista archivos y directorios con opciones de recursividad, límite y profundidad.\nOpciones disponibles:",
-                    options,
-                    "\nEjemplo: java -jar listado.jar -r -l 10 -d 2",
-                    true
-                );
+            if (cmd.isUsageHelpRequested()) {
+                cmd.usage(System.out);
                 System.exit(0);
             }
 
-            recursive = cmd.hasOption("r");
-            if(!recursive) {
-                depth = 1; 
+            if (cmd.isVersionHelpRequested()) {
+                cmd.printVersionHelp(System.out);
+                System.exit(0);
             }
 
-            if (cmd.hasOption("l")) {
-                String limitStr = cmd.getOptionValue("l");
-                limit = Integer.parseInt(limitStr);
-                if (limit < 0) throw new IllegalArgumentException("El límite debe ser un número natural.");
-            }
-            if(limit == 0) limit = Long.MAX_VALUE;
-
-            if (cmd.hasOption("d")) {
-                if(!cmd.hasOption("r")) throw new IllegalArgumentException("La opción -d requiere que se use -r.");
-                String depthStr = cmd.getOptionValue("d");
-                int val = Integer.parseInt(depthStr);
-                if (val < 0) throw new IllegalArgumentException("La profundidad debe ser un número natural o 0.");
-                depth = val;
-            }
-
-            String[] posicionales = cmd.getArgs();
-            if(posicionales.length == 0) {
-                logger.info("No se especificó un directorio, se usará el directorio personal: {}", directory);
-            }
-            else {
-                if(posicionales.length > 1) {
-                    logger.warn("Sólo se considerará el primer argumento posicional como directorio.");
-                }
-                if (posicionales[0].isEmpty()) {
-                    logger.info("No se especificó un directorio, se usará el directorio personal: {}", directory);
-                }
-                else {
-                    directory = Path.of(posicionales[0]);
-                    if(!Files.exists(directory)) {
-                        logger.error("La ruta '{}' no existe", directory);
-                        System.exit(1);
-                    }
-                    else if(!Files.isDirectory(directory)) {
-                        logger.error("La ruta '{}' no es un directorio", directory);
-                        System.exit(1);
-                    } 
-                }
-            }
-
-            String[] tiposStr = cmd.getOptionValues("t");
-            if(tiposStr != null) {
-                tipos = Arrays.stream(tiposStr)
-                    .map(TipoArchivo::fromString)
-                    .toArray(TipoArchivo[]::new);
-                for(TipoArchivo tipo: tipos) {
-                    if(tipo == null) {
-                        logger.error("Tipo de archivo no válido especificado. Los tipos válidos son: {}", Arrays.toString(TipoArchivo.values()));
-                        System.exit(1);
-                    }
-                }
-            }
-        } catch (ParseException | NumberFormatException e) {
-            throw new IllegalArgumentException("Error al analizar los argumentos: " + e.getMessage(), e);
+            // Validaciones y reasignaciones de valor adicionales
+            instance.validate();
+            
+        } catch (CommandLine.ParameterException e) {  // Corregido: ParameterException, no ParametersException
+            logger.error("Error en parámetros: {}", e.getMessage());
+            cmd.usage(System.err);
+            System.exit(2);
         }
+
+        return instance;
     }
 
     /**
-     * Inicializa la configuración con los argumentos proporcionados.
-     * @param args Argumentos de línea de comandos.
-     * @return La instancia de configuración inicializada.
-     */
-    public static Config create(String[] args) {
-        if (instance == null) {
-            instance = new Config(args);
-            return instance;
-        }
-        throw new IllegalStateException("La configuración ya fue inicializada.");
-    }
-
-    /**
-     * Obtiene la instancia de configuración.
-     * @return La instancia de configuración.
+     * Obtiene la instancia única de Config.
+     * @return La instancia con la configuración.
      */
     public static Config getInstance() {
-        if (instance == null) throw new IllegalStateException("La configuración no ha sido inicializada.");
-        return instance;   
+        if (instance == null) {
+            throw new IllegalStateException("Configuración no inicializada. Llama a create() primero.");
+        }
+        return instance;
     }
 
     /**
-     * Verifica si la búsqueda es recursiva.
-     * @return true si es recursivo, false en caso contrario.
+     * Valida y ajusta los parámetros de configuración, y define valores por defecto
+     * o incompatibilidades entre opciones.
+     */
+    private void validate() {
+        if (directory == null) directory = Path.of(DEFAULT_DIRECTORY);
+
+        // 0 significa "sin límite".
+        if (depth == 0) depth = Integer.MAX_VALUE;
+        if (limit == 0) limit = Long.MAX_VALUE;
+
+        // En caso de que la profundidad no sea 1, la búsqueda es recursiva.
+        if (depth != 1) recursive = true;
+
+        if (limit < 0) {
+            throw new CommandLine.ParameterException(new CommandLine(this), "El límite no puede ser negativo");
+        }
+
+        if (depth < 0) {
+            throw new CommandLine.ParameterException(new CommandLine(this), "La profundidad no puede ser negativa");
+        }
+
+        if (silent && verbosity.length > 0) {
+            throw new CommandLine.ParameterException(new CommandLine(this), "Las opciones -s y -v son incompatibles");
+        }
+    }
+
+    /**
+     * Indica si la búsqueda es recursiva.
+     * @return true, si la búsqueda es recursiva.
      */
     public boolean isRecursive() {
         return recursive;
     }
 
     /**
-     * Obtiene el límite máximo de archivos a procesar.
-     * @return El límite máximo de archivos (0 para sin límite).
+     * Obtiene el límite máximo de archivos a mostrar.
+     * @return El límite máximo de archivos a mostrar.
      */
     public long getLimit() {
         return limit;
     }
 
     /**
-     * Obtiene la profundidad máxima de búsqueda.
-     * @return La profundidad máxima (0 para sin límite).
+     * Obtiene la profundidad máxima de recursión.
+     * @return La profundidad máxima de recursión.
      */
     public int getDepth() {
         return depth;
-    }
-
-    /**
-     * Obtiene el directorio donde se realizará la búsqueda.
-     * @return La ruta del directorio.
-     */
-    public Path getDirectory() {
-        return directory;
-    }
-
-    /**
-     * Obtiene los tipos de archivo a incluir en la búsqueda.
-     * @return Un arreglo de tipos de archivo, o null si no se especificaron tipos.
-     */
-    public TipoArchivo[] getTipos() {
-        return tipos;
     }
 
     /**
@@ -200,7 +185,30 @@ public class Config {
      * @return El nivel de registro.
      */
     public Level getLogLevel() {
-        // No puedo implementar -vvvv con Apache Commons CLI
-        return Level.WARN;
+        if(silent) return Level.ERROR;
+
+        int verbose = (verbosity == null) ? 0 : verbosity.length;
+        return switch (verbose) {
+            case 0  -> Level.WARN;
+            case 1  -> Level.INFO;
+            case 2  -> Level.DEBUG;
+            default -> Level.TRACE;
+        };
+    }
+
+    /**
+     * Obtiene el directorio base para la búsqueda.
+     * @return El directorio base para la búsqueda.
+     */
+    public Path getDirectory() {
+        return directory;
+    }
+
+    /**
+     * Obtiene los tipos de archivo que se desea mostrar.
+     * @return Los tipos de archivo que se desea mostrar.
+     */
+    public TipoArchivo[] getTipos() {
+        return tipos;
     }
 }
